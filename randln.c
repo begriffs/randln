@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -39,6 +40,13 @@ void fputline(FILE *fp)
 	}
 }
 
+/* advance to next full line */
+void eatline(FILE *fp)
+{
+	int c;
+	while ((c = fgetc(fp)) != EOF && c != '\n')
+		;
+}
 
 void via_fseek(const char* filename)
 {
@@ -52,10 +60,7 @@ void via_fseek(const char* filename)
 	pos = (int)((double)rand() / ((double)RAND_MAX + 1) * filesz);
 
 	fseek(fp, pos, SEEK_SET);
-
-	/* advance to next full line */
-	while ((c = fgetc(fp)) != EOF && c != '\n')
-		;
+	eatline(fp);
 
 	/* if we hit the end, wrap to start */
 	if ((c = fgetc(fp)) == EOF)
@@ -72,7 +77,6 @@ void via_bookmarks(const char* filename)
 	size_t nalloc = 1, nlines = 0, line;
 	fpos_t *bookmarks = malloc(sizeof(fpos_t));
 	FILE *fp = fopen(filename, "r");
-	int c;
 
 	/* scan whole file, set bookmarks */
 	do
@@ -84,16 +88,47 @@ void via_bookmarks(const char* filename)
 			bookmarks = realloc(
 				bookmarks, nalloc * sizeof(fpos_t));
 		}
-		/* advance to next full line */
-		while ((c = fgetc(fp)) != EOF && c != '\n')
-			;
+		eatline(fp);
 	} while (!feof(fp));
 
-	line = (size_t)((double)rand() / ((double)RAND_MAX + 1) * nlines);
+	line = ((double)rand() / ((double)RAND_MAX + 1) * nlines);
 	fsetpos(fp, &bookmarks[line]);
 
 	fputline(fp);
 	free(bookmarks);
+	fclose(fp);
+}
+
+/* bookmark lines 1,2,4,8 ... */
+void via_expmarks(const char* filename)
+{
+	/* up to 2^64 lines */
+	fpos_t bookmarks[64], *bm = bookmarks;
+	/* limited by this guy */
+	unsigned long nlines = 0, nextmark = 1,
+				  catchup, line;
+	
+	FILE *fp = fopen(filename, "r");
+
+	fgetpos(fp, bm++);
+	do
+	{
+		if(nlines++ >= nextmark)
+		{
+			nextmark *= 2;
+			fgetpos(fp, bm++);
+		}
+		eatline(fp);
+	} while (!feof(fp));
+
+	line = ((double)rand() / ((double)RAND_MAX + 1) * nlines);
+	bm = &bookmarks[(size_t)floor(log(line)/log(2))];
+
+	fsetpos(fp, bm);
+	catchup = exp2(bm - bookmarks);
+	while (catchup++ < line)
+		eatline(fp);
+	fputline(fp);
 	fclose(fp);
 }
 
@@ -103,8 +138,9 @@ int main(int argc, char **argv)
 
 	defensive_srand();
 
-	/* via_fseek(argv[1]); */
-	via_bookmarks(argv[1]);
+	via_fseek(argv[1]);
+	/* via_bookmarks(argv[1]); */
+	/* via_expmarks(argv[1]); */
 
 	return EXIT_SUCCESS;
 }
