@@ -27,18 +27,28 @@ void defensive_srand(void)
 	srand(hash + time(NULL));
 }
 
-int main(int argc, char **argv)
+/* output until \n or EOF */
+void fputline(FILE *fp)
 {
-	FILE *fp = fopen(argv[1], "rb");
+	int c;
+	while ((c = fgetc(fp)) != EOF)
+	{
+		putchar(c);
+		if (c == '\n')
+			break;
+	}
+}
+
+
+void via_fseek(const char* filename)
+{
+	FILE *fp = fopen(filename, "rb");
 	long filesz, pos;
 	int c;
-
-	(void)argc;
 
 	fseek(fp, 0, SEEK_END);
 	filesz = ftell(fp);
 
-	defensive_srand();
 	pos = (int)((double)rand() / ((double)RAND_MAX + 1) * filesz);
 
 	fseek(fp, pos, SEEK_SET);
@@ -53,14 +63,48 @@ int main(int argc, char **argv)
 	else
 		ungetc(c, fp);
 
-	while ((c = fgetc(fp)) != EOF)
-	{
-		putchar(c);
-		if (c == '\n')
-			break;
-	}
-
+	fputline(fp);
 	fclose(fp);
+}
+
+void via_bookmarks(const char* filename)
+{
+	size_t nalloc = 1, nlines = 0, line;
+	fpos_t *bookmarks = malloc(sizeof(fpos_t));
+	FILE *fp = fopen(filename, "r");
+	int c;
+
+	/* scan whole file, set bookmarks */
+	do
+	{
+		fgetpos(fp, &bookmarks[nlines++]);
+		if (nlines >= nalloc)
+		{
+			nalloc *= 2;
+			bookmarks = realloc(
+				bookmarks, nalloc * sizeof(fpos_t));
+		}
+		/* advance to next full line */
+		while ((c = fgetc(fp)) != EOF && c != '\n')
+			;
+	} while (!feof(fp));
+
+	line = (size_t)((double)rand() / ((double)RAND_MAX + 1) * nlines);
+	fsetpos(fp, &bookmarks[line]);
+
+	fputline(fp);
+	free(bookmarks);
+	fclose(fp);
+}
+
+int main(int argc, char **argv)
+{
+	(void)argc;
+
+	defensive_srand();
+
+	/* via_fseek(argv[1]); */
+	via_bookmarks(argv[1]);
 
 	return EXIT_SUCCESS;
 }
