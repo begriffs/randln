@@ -2,11 +2,17 @@
 #include <stdlib.h>
 #include <time.h>
 
-/* in case program is executed more than once per second,
- * and to defend aganst crappy RNGs *cough OS X.*
+/*
+ * Calls srand() with a value that changes fairly dramatically even
+ * if the system time has not advanced much since the last time
+ * defensive_srand() was called.
  *
- * Uses tmpnam() as a source of extra randomness, to avoid
- * needing to rely on POSIX things like the process PID.
+ * This is in case our program is executed more than once per second,
+ * and to defend aganst crappy RNGs whose first rand() value doesn't
+ * change much when the seed doesn't. (cough, OS X...)
+ *
+ * Internally it hashes tmpnam() to add to the seed, to avoid needing to
+ * rely on POSIX things like the process PID.
  */
 void defensive_srand(void)
 {
@@ -35,7 +41,6 @@ int main(int argc, char **argv)
 	defensive_srand();
 	pos = (int)((double)rand() / ((double)RAND_MAX + 1) * filesz);
 
-	fprintf(stderr, "pos: %ld\n", pos);
 	fseek(fp, pos, SEEK_SET);
 
 	/* advance to next full line */
