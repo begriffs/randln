@@ -10,13 +10,13 @@
  */
 void defensive_srand(void)
 {
-    unsigned long hash = 5381;
+	unsigned long hash = 5381;
 	char *str = tmpnam(NULL);
-    int c;
+	int c;
 
 	/* djb2 hashing */
-    while ( (c = *str++) )
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+	while ( (c = *str++) )
+		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
 	srand(hash + time(NULL));
 }
