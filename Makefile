@@ -1,3 +1,4 @@
-CFLAGS = -std=c89 -Wall -Wextra -Wpedantic -Wshadow -Wno-deprecated-declarations
+CFLAGS = -std=c89 -Wall -Wextra -Wshadow -Wno-deprecated-declarations
+LDFLAGS = -lm
 
 all: randln
