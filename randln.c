@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -132,6 +133,25 @@ void via_expmarks(const char* filename)
 	catchup = exp2(bm - bookmarks);
 	while (catchup++ < line)
 		eatline(fp);
+	fputline(fp);
+	fclose(fp);
+}
+
+void via_poisson(double prob, const char *filename)
+{
+	FILE *fp;
+
+	assert(0 < prob && prob <= 1);
+
+	fp = fopen(filename, "r");
+
+	/* scan whole file, set bookmarks */
+	while ((double)rand() / ((double)RAND_MAX + 1) < prob)
+	{
+		if (feof(fp))
+			rewind(fp);
+		eatline(fp);
+	}
 	fputline(fp);
 	fclose(fp);
 }
