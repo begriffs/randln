@@ -95,7 +95,7 @@ void via_bookmarks(const char* filename)
 		eatline(fp);
 	} while (!feof(fp));
 
-	line = ((double)rand() / ((double)RAND_MAX + 1) * nlines);
+	line = round(((double)rand() / ((double)RAND_MAX + 1) * nlines));
 	fsetpos(fp, &bookmarks[line]);
 
 	fputline(fp);
