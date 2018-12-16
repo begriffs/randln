@@ -46,6 +46,10 @@ void eatline(FILE *fp)
 	int c;
 	while ((c = fgetc(fp)) != EOF && c != '\n')
 		;
+
+	/* probe for EOF */
+	if ((c= fgetc(fp)) != EOF)
+		ungetc(c, fp);
 }
 
 void via_fseek(const char* filename)
