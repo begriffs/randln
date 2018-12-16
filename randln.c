@@ -78,7 +78,7 @@ void via_fseek(const char* filename)
 
 void via_bookmarks(const char* filename)
 {
-	size_t nalloc = 1, nlines = 0, line;
+	size_t number_allocated = 1, nlines = 0, line;
 	fpos_t *bookmarks = malloc(sizeof(fpos_t));
 	FILE *fp = fopen(filename, "r");
 
@@ -86,11 +86,11 @@ void via_bookmarks(const char* filename)
 	do
 	{
 		fgetpos(fp, &bookmarks[nlines++]);
-		if (nlines >= nalloc)
+		if (nlines >= number_allocated)
 		{
-			nalloc *= 2;
+			number_allocated *= 2;
 			bookmarks = realloc(
-				bookmarks, nalloc * sizeof(fpos_t));
+				bookmarks, number_allocated * sizeof(fpos_t));
 		}
 		eatline(fp);
 	} while (!feof(fp));
