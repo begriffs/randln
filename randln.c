@@ -139,14 +139,16 @@ void via_expmarks(const char* filename)
 
 void via_poisson(double prob, const char *filename)
 {
+	int limbo;
 	FILE *fp;
 
 	assert(0 < prob && prob <= 1);
 
 	fp = fopen(filename, "r");
+	limbo = round(RAND_MAX * prob);
 
 	/* scan whole file, set bookmarks */
-	while ((double)rand() / ((double)RAND_MAX + 1) < prob)
+	while (rand() > limbo)
 	{
 		if (feof(fp))
 			rewind(fp);
