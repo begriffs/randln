@@ -198,7 +198,7 @@ void via_poisson(double prob, const char *filename)
 
 void usage(const char *prog)
 {
-	printf("usage: %s [-t(f|b|e|p)] [-p(fff)] filename\n", prog);
+	printf("usage: %s [-m(f|b|e|p)] [-p(fff)] filename\n", prog);
 }
 
 int main(int argc, char **argv)
