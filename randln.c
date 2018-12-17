@@ -83,7 +83,6 @@ void via_fseek(const char* filename)
 	long filesz, pos;
 	int c;
 
-	/* check that stream supports seeking */
 	if (fseek(fp, 0, SEEK_END) != 0)
 		die_with_error(NULL);
 	if ((filesz = ftell(fp)) == -1)
