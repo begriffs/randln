@@ -147,7 +147,6 @@ void via_poisson(double prob, const char *filename)
 	fp = fopen(filename, "r");
 	limbo = round(RAND_MAX * prob);
 
-	/* scan whole file, set bookmarks */
 	while (rand() > limbo)
 	{
 		if (feof(fp))
