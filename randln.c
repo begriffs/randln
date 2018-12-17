@@ -50,7 +50,7 @@ FILE *fopen_or_die(const char *p, const char *m)
 void echoline(FILE *fp)
 {
 	int c;
-	while ((c = fgetc(fp)) != EOF)
+	while ((c = getc(fp)) != EOF)
 	{
 		putchar(c);
 		if (c == '\n')
@@ -62,11 +62,11 @@ void echoline(FILE *fp)
 void eatline(FILE *fp)
 {
 	int c;
-	while ((c = fgetc(fp)) != EOF && c != '\n')
+	while ((c = getc(fp)) != EOF && c != '\n')
 		;
 
 	/* probe for EOF */
-	if ((c= fgetc(fp)) != EOF)
+	if ((c = getc(fp)) != EOF)
 		ungetc(c, fp);
 }
 
@@ -89,7 +89,7 @@ void via_fseek(const char* filename)
 	eatline(fp);
 
 	/* if we hit the end, wrap to start */
-	if ((c = fgetc(fp)) == EOF)
+	if ((c = getc(fp)) == EOF)
 		rewind(fp);
 	else
 		ungetc(c, fp);
