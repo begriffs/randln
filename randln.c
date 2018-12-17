@@ -22,15 +22,32 @@ void defensive_srand(void)
 	char *str = tmpnam(NULL);
 	int c;
 
-	/* djb2 hashing */
-	while ( (c = *str++) )
-		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+	if (str != NULL)
+	{
+		/* djb2 hashing */
+		while ( (c = *str++) )
+			hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+	}
 
 	srand(hash + time(NULL));
 }
 
+void die_with_error(void)
+{
+	perror(NULL);
+	exit(EXIT_FAILURE);
+}
+
+FILE *fopen_or_die(const char *p, const char *m)
+{
+	FILE *fp = fopen(p, m);
+	if (!fp)
+		die_with_error();
+	return fp;
+}
+
 /* output until \n or EOF */
-void fputline(FILE *fp)
+void echoline(FILE *fp)
 {
 	int c;
 	while ((c = fgetc(fp)) != EOF)
@@ -41,7 +58,7 @@ void fputline(FILE *fp)
 	}
 }
 
-/* advance to next full line */
+/* advance to next full line, set EOF if last */
 void eatline(FILE *fp)
 {
 	int c;
@@ -55,16 +72,20 @@ void eatline(FILE *fp)
 
 void via_fseek(const char* filename)
 {
-	FILE *fp = fopen(filename, "rb");
+	FILE *fp = fopen_or_die(filename, "rb");
 	long filesz, pos;
 	int c;
 
-	fseek(fp, 0, SEEK_END);
-	filesz = ftell(fp);
+	/* check that stream supports seeking */
+	if (fseek(fp, 0, SEEK_END) != 0)
+		die_with_error();
+	if ((filesz = ftell(fp)) == -1)
+		die_with_error();
 
 	pos = (int)((double)rand() / ((double)RAND_MAX + 1) * filesz);
 
-	fseek(fp, pos, SEEK_SET);
+	if (fseek(fp, pos, SEEK_SET) != 0)
+		die_with_error();
 	eatline(fp);
 
 	/* if we hit the end, wrap to start */
@@ -73,7 +94,7 @@ void via_fseek(const char* filename)
 	else
 		ungetc(c, fp);
 
-	fputline(fp);
+	echoline(fp);
 	fclose(fp);
 }
 
@@ -81,25 +102,29 @@ void via_bookmarks(const char* filename)
 {
 	size_t number_allocated = 1, nlines = 0, line;
 	fpos_t *bookmarks = malloc(sizeof(fpos_t));
-	FILE *fp = fopen(filename, "r");
+	FILE *fp = fopen_or_die(filename, "r");
 
 	/* scan whole file, set bookmarks */
 	do
 	{
-		fgetpos(fp, &bookmarks[nlines++]);
+		if (fgetpos(fp, &bookmarks[nlines++]) != 0)
+			die_with_error();
 		if (nlines >= number_allocated)
 		{
 			number_allocated *= 2;
 			bookmarks = realloc(
 				bookmarks, number_allocated * sizeof(fpos_t));
+			if (bookmarks == NULL)
+				die_with_error();
 		}
 		eatline(fp);
 	} while (!feof(fp));
 
 	line = round(((double)rand() / ((double)RAND_MAX + 1) * nlines));
-	fsetpos(fp, &bookmarks[line]);
+	if (fsetpos(fp, &bookmarks[line]) != 0)
+		die_with_error();
 
-	fputline(fp);
+	echoline(fp);
 	free(bookmarks);
 	fclose(fp);
 }
@@ -113,15 +138,17 @@ void via_expmarks(const char* filename)
 	unsigned long nlines = 0, nextmark = 1,
 				  catchup, line;
 	
-	FILE *fp = fopen(filename, "r");
+	FILE *fp = fopen_or_die(filename, "r");
 
-	fgetpos(fp, bm++);
+	if (fgetpos(fp, bm++) != 0)
+		die_with_error();
 	do
 	{
 		if(nlines++ >= nextmark)
 		{
 			nextmark *= 2;
-			fgetpos(fp, bm++);
+			if (fgetpos(fp, bm++) != 0)
+				die_with_error();
 		}
 		eatline(fp);
 	} while (!feof(fp));
@@ -129,11 +156,12 @@ void via_expmarks(const char* filename)
 	line = ((double)rand() / ((double)RAND_MAX + 1) * nlines);
 	bm = &bookmarks[(size_t)floor(log(line)/log(2))];
 
-	fsetpos(fp, bm);
+	if (fsetpos(fp, bm) != 0)
+		die_with_error();
 	catchup = exp2(bm - bookmarks);
 	while (catchup++ < line)
 		eatline(fp);
-	fputline(fp);
+	echoline(fp);
 	fclose(fp);
 }
 
@@ -144,16 +172,20 @@ void via_poisson(double prob, const char *filename)
 
 	assert(0 < prob && prob <= 1);
 
-	fp = fopen(filename, "r");
+	fp = fopen_or_die(filename, "r");
 	limbo = round(RAND_MAX * prob);
 
 	while (rand() > limbo)
 	{
 		if (feof(fp))
-			rewind(fp);
+		{
+			/* try to rewind if stream supports it */
+			if (fseek(fp, 0, SEEK_SET) != 0)
+				break;
+		}
 		eatline(fp);
 	}
-	fputline(fp);
+	echoline(fp);
 	fclose(fp);
 }
 
@@ -166,6 +198,7 @@ int main(int argc, char **argv)
 	via_fseek(argv[1]);
 	/* via_bookmarks(argv[1]); */
 	/* via_expmarks(argv[1]); */
+	/* via_poisson(0.000001, argv[1]); */
 
 	return EXIT_SUCCESS;
 }
