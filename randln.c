@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 /*
@@ -40,7 +41,13 @@ void die_with_error(const char *s)
 
 FILE *fopen_or_die(const char *p, const char *m)
 {
-	FILE *fp = fopen(p, m);
+	FILE *fp;
+	
+	/* "-" is a special form meaning stdin */
+	fp = (strcmp("-", p) == 0)
+		? freopen(NULL, m, stdin)
+		: fopen(p, m);
+
 	if (!fp)
 		die_with_error(p);
 	return fp;
@@ -189,9 +196,14 @@ void via_poisson(double prob, const char *filename)
 	fclose(fp);
 }
 
+void usage(const char *prog)
+{
+	printf("usage: %s [-t(f|b|e|p)] [-p(fff)] filename\n", prog);
+}
+
 int main(int argc, char **argv)
 {
-	const char *filename = NULL, *flag;
+	const char *filename = NULL, *flag, *prog = argv[0];
 	double poisson_probability = 1e-4;
 	enum {
 		VIA_FSEEK = 'f', VIA_BOOK    = 'b',
@@ -213,6 +225,12 @@ int main(int argc, char **argv)
 				case 'p':
 					poisson_probability = strtod(flag+2, NULL);
 					break;
+				case '\0': /* "-" alone means stdin */
+					filename = flag;
+					break;
+				case 'h':
+					usage(prog);
+					exit(EXIT_SUCCESS);
 				default:
 					fprintf(stderr, "Unknown flag: %c\n", flag[1]);
 					exit(EXIT_FAILURE);
@@ -225,6 +243,7 @@ int main(int argc, char **argv)
 	if (filename == NULL)
 	{
 		fputs("Filename required\n", stderr);
+		usage(prog);
 		exit(EXIT_FAILURE);
 	}
 
@@ -244,6 +263,7 @@ int main(int argc, char **argv)
 			break;
 		default:
 			fprintf(stderr, "Unknown method: %c\n", (char)method);
+			usage(prog);
 			exit(EXIT_FAILURE);
 	}
 
