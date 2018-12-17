@@ -32,9 +32,9 @@ void defensive_srand(void)
 	srand(hash + time(NULL));
 }
 
-void die_with_error(void)
+void die_with_error(const char *s)
 {
-	perror(NULL);
+	perror(s);
 	exit(EXIT_FAILURE);
 }
 
@@ -42,7 +42,7 @@ FILE *fopen_or_die(const char *p, const char *m)
 {
 	FILE *fp = fopen(p, m);
 	if (!fp)
-		die_with_error();
+		die_with_error(p);
 	return fp;
 }
 
@@ -78,14 +78,14 @@ void via_fseek(const char* filename)
 
 	/* check that stream supports seeking */
 	if (fseek(fp, 0, SEEK_END) != 0)
-		die_with_error();
+		die_with_error(NULL);
 	if ((filesz = ftell(fp)) == -1)
-		die_with_error();
+		die_with_error(NULL);
 
 	pos = (int)((double)rand() / ((double)RAND_MAX + 1) * filesz);
 
 	if (fseek(fp, pos, SEEK_SET) != 0)
-		die_with_error();
+		die_with_error(NULL);
 	eatline(fp);
 
 	/* if we hit the end, wrap to start */
@@ -108,21 +108,21 @@ void via_bookmarks(const char* filename)
 	do
 	{
 		if (fgetpos(fp, &bookmarks[nlines++]) != 0)
-			die_with_error();
+			die_with_error(NULL);
 		if (nlines >= number_allocated)
 		{
 			number_allocated *= 2;
 			bookmarks = realloc(
 				bookmarks, number_allocated * sizeof(fpos_t));
 			if (bookmarks == NULL)
-				die_with_error();
+				die_with_error(NULL);
 		}
 		eatline(fp);
 	} while (!feof(fp));
 
 	line = round(((double)rand() / ((double)RAND_MAX + 1) * nlines));
 	if (fsetpos(fp, &bookmarks[line]) != 0)
-		die_with_error();
+		die_with_error(NULL);
 
 	echoline(fp);
 	free(bookmarks);
@@ -141,14 +141,14 @@ void via_expmarks(const char* filename)
 	FILE *fp = fopen_or_die(filename, "r");
 
 	if (fgetpos(fp, bm++) != 0)
-		die_with_error();
+		die_with_error(NULL);
 	do
 	{
 		if(nlines++ >= nextmark)
 		{
 			nextmark *= 2;
 			if (fgetpos(fp, bm++) != 0)
-				die_with_error();
+				die_with_error(NULL);
 		}
 		eatline(fp);
 	} while (!feof(fp));
@@ -157,7 +157,7 @@ void via_expmarks(const char* filename)
 	bm = &bookmarks[(size_t)floor(log(line)/log(2))];
 
 	if (fsetpos(fp, bm) != 0)
-		die_with_error();
+		die_with_error(NULL);
 	catchup = exp2(bm - bookmarks);
 	while (catchup++ < line)
 		eatline(fp);
@@ -191,14 +191,61 @@ void via_poisson(double prob, const char *filename)
 
 int main(int argc, char **argv)
 {
-	(void)argc;
+	const char *filename = NULL, *flag;
+	double poisson_probability = 1e-4;
+	enum {
+		VIA_FSEEK = 'f', VIA_BOOK    = 'b',
+		VIA_EXP   = 'e', VIA_POISSON = 'p'
+	} method = VIA_FSEEK;
+
+	while (--argc)
+	{
+		flag = *++argv;
+		if (flag[0] != '-')
+			filename = flag;
+		else
+		{
+			switch (flag[1])
+			{
+				case 'm':
+					method = flag[2];
+					break;
+				case 'p':
+					poisson_probability = strtod(flag+2, NULL);
+					break;
+				default:
+					fprintf(stderr, "Unknown flag: %c\n", flag[1]);
+					exit(EXIT_FAILURE);
+			}
+		}
+	}
 
 	defensive_srand();
 
-	via_fseek(argv[1]);
-	/* via_bookmarks(argv[1]); */
-	/* via_expmarks(argv[1]); */
-	/* via_poisson(0.000001, argv[1]); */
+	if (filename == NULL)
+	{
+		fputs("Filename required\n", stderr);
+		exit(EXIT_FAILURE);
+	}
+
+	switch (method)
+	{
+		case VIA_FSEEK:
+			via_fseek(filename);
+			break;
+		case VIA_BOOK:
+			via_bookmarks(filename);
+			break;
+		case VIA_EXP:
+			via_expmarks(filename);
+			break;
+		case VIA_POISSON:
+			via_poisson(poisson_probability, filename);
+			break;
+		default:
+			fprintf(stderr, "Unknown method: %c\n", (char)method);
+			exit(EXIT_FAILURE);
+	}
 
 	return EXIT_SUCCESS;
 }
