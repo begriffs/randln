@@ -5,4 +5,6 @@ LDFLAGS = -lm
 #   LDFLAGS = -lm -fprofile-instr-generate
 # does not work yet
 
-all: randln
+randln: rand.o randln.c
+
+rand.o: rand.c rand.h

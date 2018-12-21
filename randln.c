@@ -1,93 +1,11 @@
+#include "rand.h"
+
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-unsigned long djb2hash(const unsigned char *str)
-{
-	unsigned long hash = 5381;
-	int c;
-
-	if (str)
-		while ( (c = *str++) )
-			hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-	return hash;
-}
-
-unsigned long mix(unsigned long x, unsigned long y)
-{
-	unsigned long result = 0xca01f9dd*x - 0x4973f715*y;
-	result ^= result >> 16;
-	return result;
-}
-
-unsigned long g_rand_state = 0;
-
-/*
- * Calls srand() with a value that changes fairly dramatically even
- * if the system time has not advanced much since the last time
- * defensive_srand() was called.
- *
- * This is in case our program is executed more than once per second,
- * and to defend aganst crappy RNGs whose first rand() value doesn't
- * change much when the seed doesn't. (cough, OS X...)
- *
- * Internally it hashes tmpnam() to add to the seed, to avoid needing to
- * rely on POSIX things like the process PID.
- */
-void defensive_srand(void)
-{
-	int main(int, char **);
-
-	/* two portable sources of entropy */
-	unsigned long src_a, src_b;
-	int (*p)(int, char**);
-	unsigned char *bytes;
-
-	/* use tmpnam not for creating any file, but for the entropy
-	 * that it gets from getpid(2), arc4random(2), time(3), or
-	 * glib's highres clock depending on the implementation */
-	src_a = djb2hash((unsigned char*)tmpnam(NULL));
-
-	/* the address of main() can also differ per-execution due to
-	 * address space layout randomization (ASLR) */
-	p = &main;
-	bytes = malloc(sizeof(p)+1);
-	memcpy(bytes, (void*)&p, sizeof(p));
-	bytes[sizeof(p)] = '\0';
-	src_b = djb2hash(bytes);
-	free(bytes);
-
-	g_rand_state = mix(src_a, src_b);
-}
-
-#define DEFENSIVE_RAND_MAX 0xffffffffUL
-
-/*
- * The long type should portably be at least 32 bits, and we mask the
- * calculations to 32 bits in case long happens to be wider.
- *
- * from snappy on irc
- */
-unsigned long xorshift(unsigned long x)
-{
-	unsigned long y = x & DEFENSIVE_RAND_MAX;
-	y^= (y << 13) & DEFENSIVE_RAND_MAX;
-	y^= y >> 17;
-	y^= (y << 5) & DEFENSIVE_RAND_MAX;
-	return y;
-}
-
-/*
- * Don't count on some of the garbage implementations of rand() out
- * there (such as FreeBSD and OS X). Use xorshift.
- */
-unsigned long defensive_rand()
-{
-	return (g_rand_state = xorshift(g_rand_state));
-}
 
 void die_with_error(const char *s)
 {
@@ -293,7 +211,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	defensive_srand();
+	defensive_srand(defensive_seed());
 
 	if (filename == NULL)
 	{
