@@ -7,26 +7,6 @@
 #include <string.h>
 #include <time.h>
 
-void die_with_error(const char *s)
-{
-	perror(s);
-	exit(EXIT_FAILURE);
-}
-
-FILE *fopen_or_die(const char *p, const char *m)
-{
-	FILE *fp;
-	
-	/* "-" is a special form meaning stdin */
-	fp = (strcmp("-", p) == 0)
-		? freopen(NULL, m, stdin)
-		: fopen(p, m);
-
-	if (!fp)
-		die_with_error(p);
-	return fp;
-}
-
 /* output until \n or EOF */
 void echoline(FILE *fp)
 {
@@ -37,6 +17,18 @@ void echoline(FILE *fp)
 		if (c == '\n')
 			break;
 	}
+}
+
+void die_perror(const char *s)
+{
+    perror(s);
+    exit(EXIT_FAILURE);
+}
+
+void die_error(const char *s)
+{
+	fputs(s, stderr);
+	exit(EXIT_FAILURE);
 }
 
 /* advance to next full line, set EOF if last */
@@ -51,21 +43,20 @@ void eatline(FILE *fp)
 		ungetc(c, fp);
 }
 
-void via_fseek(const char* filename)
+void via_fseek(FILE *fp)
 {
-	FILE *fp = fopen_or_die(filename, "rb");
 	long filesz, pos;
 	int c;
 
 	if (fseek(fp, 0, SEEK_END) != 0)
-		die_with_error(NULL);
+		die_perror(NULL);
 	if ((filesz = ftell(fp)) == -1)
-		die_with_error(NULL);
+		die_perror(NULL);
 
 	pos = (int)((double)defensive_rand() / ((double)DEFENSIVE_RAND_MAX + 1) * filesz);
 
 	if (fseek(fp, pos, SEEK_SET) != 0)
-		die_with_error(NULL);
+		die_perror(NULL);
 	eatline(fp);
 
 	/* if we hit the end, wrap to start */
@@ -75,12 +66,10 @@ void via_fseek(const char* filename)
 		ungetc(c, fp);
 
 	echoline(fp);
-	fclose(fp);
 }
 
-int via_replacement(const char *filename)
+void via_replacement(FILE *fp)
 {
-	FILE *fp = fopen_or_die(filename, "r");
 	struct flexarray *line = flex_new();
 	long double n = 1.0, rand01;
 	int c;
@@ -95,7 +84,7 @@ int via_replacement(const char *filename)
 				if (!flex_append(line, (char)c))
 				{
 					flex_free(line);
-					return -1;
+					die_error("Failed to realloc line buffer");
 				}
 		}
 		else
@@ -105,12 +94,10 @@ int via_replacement(const char *filename)
 
 	puts(line->val);
 	flex_free(line);
-	return 0;
 }
 
-int via_replacement_fpos(const char *filename)
+void via_replacement_fpos(FILE *fp)
 {
-	FILE *fp = fopen_or_die(filename, "r");
 	fpos_t line;
 	long double n = 1.0, rand01;
 
@@ -119,24 +106,20 @@ int via_replacement_fpos(const char *filename)
 		rand01 = ((long double)defensive_rand()) / DEFENSIVE_RAND_MAX;
 		if (rand01 <= 1/n)
 			if (fgetpos(fp, &line) != 0)
-				die_with_error(NULL);
+				die_perror(NULL);
 		eatline(fp);
 		n++;
 	} while (!feof(fp));
 
 	if (fsetpos(fp, &line) != 0)
-		die_with_error(NULL);
+		die_perror(NULL);
 	echoline(fp);
-	return 0;
 }
 
-void via_poisson(double prob, const char *filename)
+void via_poisson(double prob, FILE *fp)
 {
-	FILE *fp;
-
 	assert(0 < prob && prob <= 1);
 
-	fp = fopen_or_die(filename, "r");
 	while (defensive_rand() > DEFENSIVE_RAND_MAX * prob)
 	{
 		if (feof(fp))
@@ -148,7 +131,6 @@ void via_poisson(double prob, const char *filename)
 		eatline(fp);
 	}
 	echoline(fp);
-	fclose(fp);
 }
 
 void usage(const char *prog)
@@ -164,6 +146,7 @@ int main(int argc, char **argv)
 		VIA_FSEEK     = 'f', VIA_REPL = 'r',
 		VIA_FPOS_REPL = 'R', VIA_POISSON = 'p'
 	} method = VIA_FSEEK;
+	FILE *fp;
 
 	defensive_srand(defensive_seed());
 
@@ -195,32 +178,37 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (filename == NULL)
+	fp = (filename == NULL || strcmp("-", filename) == 0)
+		? stdin
+		: fopen(filename,
+			method == VIA_FSEEK ? "rb" : "r"
+		  );
+	if (!fp)
 	{
-		fputs("Filename required\n", stderr);
-		usage(prog);
+		perror(filename);
 		exit(EXIT_FAILURE);
 	}
 
 	switch (method)
 	{
 		case VIA_FSEEK:
-			via_fseek(filename);
+			via_fseek(fp);
 			break;
 		case VIA_REPL:
-			via_replacement(filename);
+			via_replacement(fp);
 			break;
 		case VIA_FPOS_REPL:
-			via_replacement_fpos(filename);
+			via_replacement_fpos(fp);
 			break;
 		case VIA_POISSON:
-			via_poisson(poisson_probability, filename);
+			via_poisson(poisson_probability, fp);
 			break;
 		default:
 			fprintf(stderr, "Unknown method: %c\n", (char)method);
 			usage(prog);
 			exit(EXIT_FAILURE);
 	}
+	fclose(fp);
 
 	return EXIT_SUCCESS;
 }
