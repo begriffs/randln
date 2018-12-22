@@ -1,7 +1,7 @@
+#include "flexar.h"
 #include "rand.h"
 
 #include <assert.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -78,84 +78,66 @@ void via_fseek(const char* filename)
 	fclose(fp);
 }
 
-void via_bookmarks(const char* filename)
+int via_replacement(const char *filename)
 {
-	size_t number_allocated = 1, nlines = 0, line;
-	fpos_t *bookmarks = malloc(sizeof(fpos_t));
 	FILE *fp = fopen_or_die(filename, "r");
+	struct flexarray *line = flex_new();
+	long double n = 1.0, rand01;
+	int c;
 
-	/* scan whole file, set bookmarks */
 	do
 	{
-		if (fgetpos(fp, &bookmarks[nlines++]) != 0)
-			die_with_error(NULL);
-		if (nlines >= number_allocated)
+		rand01 = ((long double)defensive_rand()) / DEFENSIVE_RAND_MAX;
+		if (rand01 <= 1/n)
 		{
-			number_allocated *= 2;
-			bookmarks = realloc(
-				bookmarks, number_allocated * sizeof(fpos_t));
-			if (bookmarks == NULL)
-				die_with_error(NULL);
+			flex_trunc(line); /* overwrite line */
+			while ((c = getc(fp)) != EOF && c != '\n')
+				if (!flex_append(line, (char)c))
+				{
+					flex_free(line);
+					return -1;
+				}
 		}
-		eatline(fp);
+		else
+			eatline(fp);
+		n++;
 	} while (!feof(fp));
 
-	line = round(((double)defensive_rand() / ((double)DEFENSIVE_RAND_MAX + 1) * nlines));
-	if (fsetpos(fp, &bookmarks[line]) != 0)
-		die_with_error(NULL);
-
-	echoline(fp);
-	free(bookmarks);
-	fclose(fp);
+	puts(line->val);
+	flex_free(line);
+	return 0;
 }
 
-/* bookmark lines 1,2,4,8 ... */
-void via_expmarks(const char* filename)
+int via_replacement_fpos(const char *filename)
 {
-	/* up to 2^64 lines */
-	fpos_t bookmarks[64], *bm = bookmarks;
-	/* limited by this guy */
-	unsigned long nlines = 0, nextmark = 1,
-				  catchup, line;
-	
 	FILE *fp = fopen_or_die(filename, "r");
+	fpos_t line;
+	long double n = 1.0, rand01;
 
-	if (fgetpos(fp, bm++) != 0)
-		die_with_error(NULL);
 	do
 	{
-		if(nlines++ >= nextmark)
-		{
-			nextmark *= 2;
-			if (fgetpos(fp, bm++) != 0)
+		rand01 = ((long double)defensive_rand()) / DEFENSIVE_RAND_MAX;
+		if (rand01 <= 1/n)
+			if (fgetpos(fp, &line) != 0)
 				die_with_error(NULL);
-		}
 		eatline(fp);
+		n++;
 	} while (!feof(fp));
 
-	line = ((double)defensive_rand() / ((double)RAND_MAX + 1) * nlines);
-	bm = &bookmarks[(size_t)floor(log(line)/log(2))];
-
-	if (fsetpos(fp, bm) != 0)
+	if (fsetpos(fp, &line) != 0)
 		die_with_error(NULL);
-	catchup = exp2(bm - bookmarks);
-	while (catchup++ < line)
-		eatline(fp);
 	echoline(fp);
-	fclose(fp);
+	return 0;
 }
 
 void via_poisson(double prob, const char *filename)
 {
-	unsigned long limbo;
 	FILE *fp;
 
 	assert(0 < prob && prob <= 1);
 
 	fp = fopen_or_die(filename, "r");
-	limbo = round(DEFENSIVE_RAND_MAX * prob);
-
-	while (defensive_rand() > limbo)
+	while (defensive_rand() > DEFENSIVE_RAND_MAX * prob)
 	{
 		if (feof(fp))
 		{
@@ -171,7 +153,7 @@ void via_poisson(double prob, const char *filename)
 
 void usage(const char *prog)
 {
-	printf("usage: %s [-m(f|b|e|p)] [-p(fff)] filename\n", prog);
+	printf("usage: %s [-m(f|r|R|p)] [-p(fff)] filename\n", prog);
 }
 
 int main(int argc, char **argv)
@@ -179,9 +161,11 @@ int main(int argc, char **argv)
 	const char *filename = NULL, *flag, *prog = argv[0];
 	double poisson_probability = 1e-4;
 	enum {
-		VIA_FSEEK = 'f', VIA_BOOK    = 'b',
-		VIA_EXP   = 'e', VIA_POISSON = 'p'
+		VIA_FSEEK     = 'f', VIA_REPL = 'r',
+		VIA_FPOS_REPL = 'R', VIA_POISSON = 'p'
 	} method = VIA_FSEEK;
+
+	defensive_srand(defensive_seed());
 
 	while (--argc)
 	{
@@ -211,8 +195,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	defensive_srand(defensive_seed());
-
 	if (filename == NULL)
 	{
 		fputs("Filename required\n", stderr);
@@ -225,11 +207,11 @@ int main(int argc, char **argv)
 		case VIA_FSEEK:
 			via_fseek(filename);
 			break;
-		case VIA_BOOK:
-			via_bookmarks(filename);
+		case VIA_REPL:
+			via_replacement(filename);
 			break;
-		case VIA_EXP:
-			via_expmarks(filename);
+		case VIA_FPOS_REPL:
+			via_replacement_fpos(filename);
 			break;
 		case VIA_POISSON:
 			via_poisson(poisson_probability, filename);

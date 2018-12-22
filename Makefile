@@ -5,6 +5,8 @@ LDFLAGS = -lm
 #   LDFLAGS = -lm -fprofile-instr-generate
 # does not work yet
 
-randln: rand.o randln.c
+randln: rand.o flexar.o randln.c
 
 rand.o: rand.c rand.h
+
+flexar.o: flexar.c flexar.h
