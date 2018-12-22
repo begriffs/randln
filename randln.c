@@ -86,6 +86,9 @@ void via_replacement(FILE *fp)
 					flex_free(line);
 					die_error("Failed to realloc line buffer");
 				}
+			/* probe for EOF */
+			if ((c = getc(fp)) != EOF)
+				ungetc(c, fp);
 		}
 		else
 			eatline(fp);
