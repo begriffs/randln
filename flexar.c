@@ -1,11 +1,15 @@
 #include "flexar.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 struct flexarray *flex_new(void)
 {
 	struct flexarray *a = malloc(sizeof(struct flexarray));
 	const size_t initial = 64;
+
+	/* initial size must be n+1 for positive n */
+	assert(initial > 1);
 
 	if (!a)
 		return NULL;
