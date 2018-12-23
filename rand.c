@@ -53,21 +53,17 @@ unsigned long defensive_seed(void)
  * Alternative to the garbage implementation of rand() in many
  * systems such as FreeBSD and OS X. Uses xorshift.
  *
- * Returns a value between 0 and DEFENSIVE_RAND_MAX, which on
- * many platforms is smaller than what unsigned long can hold.
+ * Returns a value between 0 and DEFENSIVE_RAND_MAX.
+ * From https://nullprogram.com/blog/2018/07/31/
  */
 unsigned long defensive_rand()
 {
-	/*
-	 * The long type should portably be at least 32 bits, and we
-	 * mask the calculations to 32 bits in case long happens to be
-	 * wider. The constants are tuned for a 32-bit type.
-	 */
-	unsigned long y = g_rand_state & DEFENSIVE_RAND_MAX;
-	y ^= (y << 13) & DEFENSIVE_RAND_MAX;
-	y ^= y >> 17;
-	y ^= (y << 5) & DEFENSIVE_RAND_MAX;
-	return (g_rand_state = y);
+    g_rand_state ^= g_rand_state >> 30;
+    g_rand_state *= 0xbf58476d1ce4e5b9UL;
+    g_rand_state ^= g_rand_state >> 27;
+    g_rand_state *= 0x94d049bb133111ebUL;
+    g_rand_state ^= g_rand_state >> 31;
+    return g_rand_state;
 }
 
 void defensive_srand(unsigned long s)
@@ -88,6 +84,8 @@ unsigned long djb2hash(const unsigned char *str)
 
 /* It's better to combine entropic values this way rather
  * than e.g. adding them together.
+ *
+ * From http://www.pcg-random.org/posts/developing-a-seed_seq-alternative.html
  */
 unsigned long mix(unsigned long x, unsigned long y)
 {

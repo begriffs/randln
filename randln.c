@@ -53,7 +53,8 @@ void via_fseek(FILE *fp)
 	if ((filesz = ftell(fp)) == -1)
 		die_perror(NULL);
 
-	pos = (int)((double)defensive_rand() / ((double)DEFENSIVE_RAND_MAX + 1) * filesz);
+	pos = ((double)defensive_rand() /
+		((double)DEFENSIVE_RAND_MAX)) * filesz;
 
 	if (fseek(fp, pos, SEEK_SET) != 0)
 		die_perror(NULL);
