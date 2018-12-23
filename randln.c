@@ -69,7 +69,7 @@ void via_fseek(FILE *fp)
 	echoline(fp);
 }
 
-void via_replacement(FILE *fp)
+void via_reservoir(FILE *fp)
 {
 	struct flexarray *line = flex_new();
 	long double n = 1.0, rand01;
@@ -100,7 +100,7 @@ void via_replacement(FILE *fp)
 	flex_free(line);
 }
 
-void via_replacement_fpos(FILE *fp)
+void via_reservoir_fpos(FILE *fp)
 {
 	fpos_t line;
 	long double n = 1.0, rand01;
@@ -199,10 +199,10 @@ int main(int argc, char **argv)
 			via_fseek(fp);
 			break;
 		case VIA_REPL:
-			via_replacement(fp);
+			via_reservoir(fp);
 			break;
 		case VIA_FPOS_REPL:
-			via_replacement_fpos(fp);
+			via_reservoir_fpos(fp);
 			break;
 		case VIA_POISSON:
 			via_poisson(poisson_probability, fp);
