@@ -5,6 +5,7 @@ CFLAGS = -std=c89 -Wall -Wextra -Wshadow -Wno-deprecated-declarations
 # does not work yet
 
 randln: rand.o flexar.o randln.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ randln.c rand.o flexar.o
 
 rand.o: rand.c rand.h
 
