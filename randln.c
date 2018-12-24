@@ -147,8 +147,8 @@ int main(int argc, char **argv)
 	const char *filename = NULL, *flag, *prog = argv[0];
 	double poisson_probability = 1e-4;
 	enum {
-		VIA_FSEEK     = 'f', VIA_REPL = 'r',
-		VIA_FPOS_REPL = 'R', VIA_POISSON = 'p'
+		VIA_FSEEK     = 'f', VIA_RES = 'r',
+		VIA_FPOS_RES = 'R', VIA_POISSON = 'p'
 	} method = VIA_FSEEK;
 	FILE *fp;
 
@@ -198,10 +198,10 @@ int main(int argc, char **argv)
 		case VIA_FSEEK:
 			via_fseek(fp);
 			break;
-		case VIA_REPL:
+		case VIA_RES:
 			via_reservoir(fp);
 			break;
-		case VIA_FPOS_REPL:
+		case VIA_FPOS_RES:
 			via_reservoir_fpos(fp);
 			break;
 		case VIA_POISSON:

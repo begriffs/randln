@@ -5,8 +5,10 @@ and portability. This project should be portable to any platform with a hosted
 C environment.
 
 ```
-usage: ./randln [-m(f|b|e|p)] [-p(fff)] filename
+usage: ./randln [-m(f|r|R|p)] [-p(fff)] [filename]
 ```
+
+If filename is missing or "-" then the utility reads from stdin.
 
 There are currently four tactics it can use to choose a line to print.
 
@@ -18,6 +20,8 @@ Advance to the beginning of the next line (wrapping to the start on EOF), and
 print that line, character by character. So it's actually most likely to pick
 a line immediately *after* a long one.
 
+This is the default method if no method is specified in command line arguments.
+
 **Pros:**
 
 Very fast. Does not have to read any characters except to find the start
@@ -26,48 +30,50 @@ system I/O call.
 
 **Cons:**
 
-1. Fseek/ftell measure the byte position as a "long," which on some systems is
-   32-bits. This limits the file size on such systems.
-2. My use of the offset in fseek requires opening the file in binary mode. If a
-   system has a newline convention with characters after '\\n' (like '\\n\\r') then
-   those characters will be considered as the start of the next line to be printed.
+Using an offset in fseek requires opening the file in binary mode. If
+a system has a newline convention with characters after '\\n' (like
+'\\n\\r') then those characters will be considered as the start of the
+next line to be printed.
 
-### Line Bookmarks  (-mb)
+Also the bias by line length.
 
-**Choose all lines with equal probability.** Makes a full pass through the
-file, calling fgetpos() at the start of each line and saving the results into
-an array, reallocating the array at double size each time more space is needed.
-After consuming all lines, picks a random line number, jumps to the bookmark
-with fsetpos() and re-reads and prints the line from the file.
+### Reservoir Sampling of lines  (-mr)
 
-**Pros:**
-
-* Can handle files with line numbers that fit in type size\_t. Even if that's
-  32-bits, it's better than fseek's total *character* count limit of 32-bits.
-
-**Cons:**
-
-* Requires at least sizeof(fpos\_t)\*line\_count bytes of memory
-* Requires scanning through the whole file.
-
-Future improvement for this method would be to accept a paramter to bookmark
-every n-th line rather than all lines in order to reduce memory usage.
-
-### Exponential bookmarks  (-me)
-
-**Choose all lines with equal probability.** Like the line bookmark technique,
-but puts the bookmarks at lines 1, 2, 4, 8...
+**Choose a line with uniform probability.** Always makes a full pass
+through the file, at each line replacing replacing a temporary buffer
+with decreasing probability. Mathematically it works out that on
+reaching the nth line, that buffer will hold any of the scanned lines
+with equal probability of 1/n. The final contents of the buffer on EOF
+are the result.
 
 **Pros:**
 
-* Small fixed memory usage
-* Practically unlimited file size (although you do have to scan through it all)
+* All lines, no matter how long or short, get the same chance.
+* Works on streams that do not support random access.
 
 **Cons:**
 
-* Requires scanning through the whole file.
-* Bookmarks get sparse later in large files, requires a potentially substantial
-  re-scan to locate a specific line.
+* Requires scanning through the whole file. Slower than the fseek method.
+* Will never terminate when reading from a never-ending stream.
+
+### Reservoir Sampling of file positions  (-mR)
+
+**Choose a lines with uniform probability.** Same probablistic
+algorithm as method `-mr` except rather than copying selected lines
+into a temporary buffer, it copies an fpos\_t value obtained with
+fgetpos(). Upon reaching EOF, it uses fsetpos() to go back to selected
+line and prints it.
+
+**Pros:**
+
+* Same as `-mr`
+* Plus does not require space in memory to hold lines. Great for long lines.
+
+**Cons:**
+
+* Same as `-mr`
+* However does use fgetpos()/fsetpos() so cannot operate on streams that
+  lack random access.
 
 ### Poisson  (-mp)
 
@@ -80,16 +86,11 @@ threshold then consume and print the line and quit.
 
 * Does not require a full scan through the file.
 * Works with input streams that do not support fseek.
+* Works on never-ending streams.
 
 **Cons:**
 
-* Requires a knowledge of the best threshold given expected stream length.
+* Requires tuning the threshold to match expected file length.
 * What happens if you hit the end of the stream and hadn't chosen a line to
-  print? I currently *try* to rewind and continue, but if the stream does
-  not support fseek then I quit without printing a line.
-
-Future improvement for this method would be to pick a backup line to
-print in case the chosen threshold never matches any. Perhaps there are a
-list of candidate lines whose thresholds are n, 2*n, 4*n etc, and if we
-hit EOF without a line for n, then choose the line that exists with the
-next-most stringent threshold.
+  print? It currently *tries* to rewind and continue, but if the stream does
+  not support fseek then it quits without printing a line.
