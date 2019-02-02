@@ -1,12 +1,20 @@
 CFLAGS = -std=c89 -Wall -Wextra -Wshadow -Wno-deprecated-declarations
 
-# Experiment to enable profiling with clang:
-#   LDFLAGS = -fprofile-instr-generate
-# does not work yet
+OBJS     = rand.o flexar.o
+OBJS_DBG = rand.g flexar.g
 
-randln: rand.o flexar.o randln.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ randln.c rand.o flexar.o
+.SUFFIXES :
+.SUFFIXES : .g .o .c
 
-rand.o: rand.c rand.h
+randln: $(OBJS) randln.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ randln.c $(OBJS)
 
-flexar.o: flexar.c flexar.h
+randln.g: $(OBJS_DBG) randln.c
+	$(CC) $(CFLAGS) -g $(LDFLAGS) -o $@ randln.c $(OBJS_DBG)
+
+.c.g :
+	$(CC) $(CFLAGS) -g -c $<
+	mv $*.o $@
+
+rand.o rand.g : rand.c rand.h
+flexar.o flexar.g : flexar.c flexar.h
