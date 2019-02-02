@@ -1,7 +1,7 @@
 CFLAGS = -std=c89 -Wall -Wextra -Wshadow -Wno-deprecated-declarations
 
 OBJS     = rand.o flexar.o
-OBJS_DBG = rand.g flexar.g
+OBJS_DBG = $(OBJS:.o=.g)
 
 .SUFFIXES :
 .SUFFIXES : .g .o .c
